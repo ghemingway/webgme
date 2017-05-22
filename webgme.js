@@ -34,28 +34,6 @@ requirejs.config({
 
 function addToRequireJsPaths(gmeConfig) {
 
-    function addAssetFromBasePath(basepaths, componentName) {
-        var componentNames = webgmeUtils.getComponentNames(basepaths);
-        return addFromBasePath(basepaths, componentName, componentNames);
-    }
-
-    function addDirsFromBasePath(basepaths, componentName) {
-        var componentNames = [],
-            files,
-            filePath;
-
-        for (var i = basepaths.length; i--;) {
-            files = fs.readdirSync(basepaths[i]);
-            for (var j = files.length; j--;) {
-                filePath = path.join(basepaths[i], files[j]);
-                if (fs.statSync(filePath).isDirectory()) {
-                    componentNames.push(files[j]);
-                }
-            }
-        }
-        return addFromBasePath(basepaths, componentName, componentNames);
-    }
-
     function addFromBasePath(basepaths, componentName, componentNames) {
         //type = 'plugin'
         var componentPaths,
@@ -93,19 +71,35 @@ function addToRequireJsPaths(gmeConfig) {
         });
     }
 
+    function addAssetFromBasePath(basepaths, componentName) {
+        var componentNames = webgmeUtils.getComponentNames(basepaths);
+        return addFromBasePath(basepaths, componentName, componentNames);
+    }
+
+    function addDirsFromBasePath(basepaths, componentName) {
+        var componentNames = [],
+            files,
+            filePath;
+
+        for (var i = basepaths.length; i--;) {
+            files = fs.readdirSync(basepaths[i]);
+            for (var j = files.length; j--;) {
+                filePath = path.join(basepaths[i], files[j]);
+                if (fs.statSync(filePath).isDirectory()) {
+                    componentNames.push(files[j]);
+                }
+            }
+        }
+        return addFromBasePath(basepaths, componentName, componentNames);
+    }
+
     function addFromRequireJsPath(requireJsPaths) {
         var configPaths = {},
             keys = Object.keys(requireJsPaths),
-            j,
             i;
         for (i = 0; i < keys.length; i += 1) {
             if (typeof requireJsPaths[keys[i]] === 'string') {
                 configPaths[keys[i]] = path.relative(requireJsBase, path.resolve(requireJsPaths[keys[i]]));
-            } else if (requireJsPaths[keys[i]] instanceof Array) {
-                configPaths[keys[i]] = [];
-                for (j = 0; j < requireJsPaths[keys[i]].length; j += 1) {
-                    configPaths[keys[i]].push(path.relative(requireJsBase, path.resolve(requireJsPaths[keys[i]][j])));
-                }
             } else {
                 throw new Error('Given requirejsPaths value is not a string nor array "' + keys[i] + '": ' +
                 '"' + requireJsPaths[keys[i]] + '"');
