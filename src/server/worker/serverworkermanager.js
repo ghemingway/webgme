@@ -7,6 +7,7 @@
 'use strict';
 
 var Child = require('child_process'),
+    Q = require('q'),
     path = require('path'),
     CONSTANTS = require('./constants'),
     GUID = requireJS('common/util/guid'),
@@ -29,7 +30,7 @@ function ServerWorkerManager(_parameters) {
     logger.debug('CONNECTED_WORKER_JS:', CONNECTED_WORKER_JS);
 
     //helping functions
-    function reserveWorker(workerType) {
+    function reserveWorker(workerType, callback) {
         var debug = false,
             execArgv = process.execArgv.filter(function (arg) {
                 if (arg.indexOf('--debug-brk') === 0) {
@@ -71,13 +72,26 @@ function ServerWorkerManager(_parameters) {
             };
 
             logger.debug('workerPid forked ' + childProcess.pid);
-            childProcess.on('message', messageHandling);
+            childProcess.on('message', function (msg) {
+                messageHandling(msg);
+
+                // FIXME: Do we really need the "initialize" in addition to "initialized"?
+                // FIXME: Why couldn't the worker start the initializing at spawn? (It can load the gmeConfig itself)
+                if (msg.type === CONSTANTS.msgTypes.initialized && typeof callback === 'function') {
+                    callback();
+                    callback = null;
+                }
+            });
+
             childProcess.on('exit', function (code, signal) {
                 logger.debug('worker has exited: ' + childProcess.pid);
                 // When killing child-process the code is undefined and the signal SIGINT.
                 if (code !== 0 && signal !== 'SIGINT') {
                     logger.warn('worker ' + childProcess.pid + ' has exited abnormally with code ' + code +
                         ', signal', signal);
+                    if (typeof callback === 'function') {
+                        callback(new Error('worker ' + childProcess.pid + ' exited abnormally with code ' + code));
+                    }
                 } else {
                     logger.debug('worker ' + childProcess.pid + ' was terminated.');
                 }
@@ -89,6 +103,8 @@ function ServerWorkerManager(_parameters) {
                 delete _workers[childProcess.pid];
                 reserveWorkerIfNecessary(workerType);
             });
+        } else if (typeof callback === 'function') {
+            callback();
         }
     }
 
@@ -238,7 +254,7 @@ function ServerWorkerManager(_parameters) {
         reserveWorkerIfNecessary(CONSTANTS.workerTypes.simple);
     };
 
-    function reserveWorkerIfNecessary(workerType) {
+    function reserveWorkerIfNecessary(workerType, callback) {
         var workerIds = Object.keys(_workers || {}),
             i,
             initializingWorkers = 0,
@@ -254,7 +270,9 @@ function ServerWorkerManager(_parameters) {
 
         if (_waitingRequests.length + 1 /* keep a spare */ > initializingWorkers + freeWorkers &&
             workerIds.length < gmeConfig.server.maxWorkers) {
-            reserveWorker(workerType);
+            reserveWorker(workerType, callback);
+        } else if (typeof callback === 'function') {
+            callback();
         }
     }
 
@@ -334,26 +352,37 @@ function ServerWorkerManager(_parameters) {
         //resid: callback
     };
 
-    this.start = function () {
+    this.start = function (callback) {
+        var promises = [];
+
         if (_managerId === null) {
             _managerId = setInterval(queueManager, 10);
         }
-        reserveWorkerIfNecessary(CONSTANTS.workerTypes.simple);
+
+        promises.push(
+            Q.nfcall(reserveWorkerIfNecessary, CONSTANTS.workerTypes.simple)
+        );
+
         // TODO: the addonEventPropagator should handle the connected worker.
         if (gmeConfig.addOn.enable === true) {
             if (gmeConfig.addOn.workerUrl) {
                 logger.info('AddOns enabled and workerUrl provided will post updates to', gmeConfig.addOn.workerUrl);
             } else {
                 logger.info('AddOns enabled will reserve a connectedWorker');
-                reserveWorker(CONSTANTS.workerTypes.connected);
+                promises.push(
+                    Q.nfcall(reserveWorker, CONSTANTS.workerTypes.connected)
+                );
             }
         }
+
+        return Q.all(promises).nodeify(callback);
     };
 
     this.stop = function (callback) {
         clearInterval(_managerId);
         _managerId = null;
-        freeAllWorkers(callback);
+
+        return Q.nfcall(freeAllWorkers).nodeify(callback);
     };
 
     this.CONSTANTS = CONSTANTS;

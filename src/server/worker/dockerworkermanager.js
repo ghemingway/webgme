@@ -1,9 +1,11 @@
-/*globals*/
+/*globals requireJS*/
+/*jshint node: true*/
 /**
  * @author pmeijer / https://github.com/pmeijer
  */
 
 var Docker = require('dockerode'),
+    ServerWorkerManager = require('./serverworkermanager'),
     docker = new Docker(),
     params = {
         projectId: 'guest+project',

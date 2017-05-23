@@ -93,8 +93,7 @@ describe('ServerWorkerManager - ConnectedWorkers', function () {
         });
 
         beforeEach(function (done) {
-            swm.start();
-            done();
+            swm.start(done);
         });
 
         afterEach(function (done) {

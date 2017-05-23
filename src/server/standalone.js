@@ -200,7 +200,7 @@ function StandAloneServer(gmeConfig) {
             .then(function (db) {
                 var promises = [];
 
-                __workerManager.start();
+                promises.push(__workerManager.start());
                 promises.push(__storage.openDatabase());
 
                 if (__executorServer) {

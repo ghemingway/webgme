@@ -85,38 +85,45 @@ describe('ServerWorkerManager - SimpleWorkers', function () {
         });
 
         it('should handle multiple stop gracefully', function (done) {
-            swm.start();
-            swm.stop(function (err) {
-                expect(err).to.equal(null);
-                swm.stop(function (err) {
-                    expect(err).to.equal(null);
-                    done();
-                });
-            });
+            swm.start()
+                .then(function () {
+                    return swm.stop();
+                })
+                .then(function () {
+                    return swm.stop();
+                })
+                .nodeify(done);
         });
 
         it('should handle multiple start gracefully', function (done) {
-            swm.start();
-            swm.start();
-            swm.start();
-            swm.start();
-            swm.stop(function (err) {
-                expect(err).to.equal(null);
-                done();
-            });
+            swm.start()
+                .then(function () {
+                    return swm.start();
+                })
+                .then(function () {
+                    return swm.start();
+                })
+                .then(function () {
+                    return swm.start();
+                })
+                .then(function () {
+                    return swm.stop();
+                })
+                .nodeify(done);
         });
 
         it('should handle start stop start stop', function (done) {
-            swm.start();
-            swm.stop(function (err) {
-                expect(err).to.equal(null);
-
-                swm.start();
-                swm.stop(function (err) {
-                    expect(err).to.equal(null);
-                    done();
-                });
-            });
+            swm.start()
+                .then(function () {
+                    return swm.stop();
+                })
+                .then(function () {
+                    return swm.start();
+                })
+                .then(function () {
+                    return swm.stop();
+                })
+                .nodeify(done);
         });
     });
 
@@ -131,9 +138,9 @@ describe('ServerWorkerManager - SimpleWorkers', function () {
 
         ownGmeConfig.addOn.enable = false;
 
-        before(function () {
+        before(function (done) {
             swm = new ServerWorkerManager(managerParameters);
-            swm.start();
+            swm.start(done);
         });
 
         after(function (done) {
@@ -183,8 +190,7 @@ describe('ServerWorkerManager - SimpleWorkers', function () {
 
         before(function (done) {
             swm = new ServerWorkerManager(workerManagerParameters);
-            swm.start();
-            setTimeout(done, 100);
+            swm.start(done);
         });
 
         after(function (done) {
